@@ -5,7 +5,7 @@
 from flair.data import Corpus
 from flair.datasets import ColumnCorpus
 from flair.data_fetcher import NLPTaskDataFetcher, NLPTask
-from flair.embeddings import TokenEmbeddings, WordEmbeddings, StackedEmbeddings, FlairEmbeddings, CharacterEmbeddings, BertEmbeddings, TransformerXLEmbeddings, ELMoTransformerEmbeddings, ELMoEmbeddings,OpenAIGPTEmbeddings
+from flair.embeddings import TokenEmbeddings, WordEmbeddings, StackedEmbeddings, FlairEmbeddings, CharacterEmbeddings, BertEmbeddings, TransformerXLEmbeddings, ELMoTransformerEmbeddings, ELMoEmbeddings,OpenAIGPTEmbeddings, RoBERTaEmbeddings,XLMEmbeddings, XLNetEmbeddings, OpenAIGPT2Embeddings
 from typing import List
 import argparse
 
@@ -69,14 +69,18 @@ def train(data_path, list_embedding, output, hyperparameter ):
         corpus: Corpus = ColumnCorpus(data_path, columns,
                               train_file='train.txt',
                               test_file='test.txt',
-#                               dev_file='dev.txt'
+#                               dev_file='dev.txt',
+                                in_memory=not args.not_in_memory
                                  )
     else:
         corpus: Corpus = ColumnCorpus(data_path, columns,
                               train_file='train.txt',
                               test_file='test.txt',
-                              dev_file='dev.txt'
+                              dev_file='dev.txt',
+                              in_memory=not args.not_in_memory
                               )
+
+
 
     # 2. what tag do we want to predict?
     tag_type = 'ner'
@@ -87,6 +91,13 @@ def train(data_path, list_embedding, output, hyperparameter ):
     
     stats=corpus.obtain_statistics()
     print("Original\n",stats)
+
+
+    if args.downsample_train>0:
+        corpus.downsample(percentage = args.downsample_train, only_downsample_train = True)
+        print("Train set downsampled by:",args.downsample_train)
+        stats=corpus.obtain_statistics()
+        print("Downsampled\n",stats)
     
 
     
@@ -120,7 +131,12 @@ def train(data_path, list_embedding, output, hyperparameter ):
                 if len(tokenized_text)>max_seq_len:
                     print("wrong binary search 1")
                     sys.exit()
-                new_train.append(Sentence(sent)) 
+                # new_train.append(Sentence(sent)) 
+                new_sent=Sentence(sent)
+                for index in range(len(new_sent)):
+                    new_sent[index].add_tag('ner', x[index].get_tag('ner').value)
+        #         print(new_sent.to_tagged_string())
+                new_train.append(new_sent)
 
         new_test=[]
         for x in corpus.test:
@@ -140,7 +156,12 @@ def train(data_path, list_embedding, output, hyperparameter ):
                 if len(tokenized_text)>max_seq_len:
                     print("wrong binary search 1")
                     sys.exit()
-                new_test.append(Sentence(sent)) 
+                # new_test.append(Sentence(sent)) 
+                new_sent=Sentence(sent)
+                for index in range(len(new_sent)):
+                    new_sent[index].add_tag('ner', x[index].get_tag('ner').value)
+        #         print(new_sent.to_tagged_string())
+                new_test.append(new_sent)
 
         new_dev=[]
         for x in corpus.dev:
@@ -160,8 +181,13 @@ def train(data_path, list_embedding, output, hyperparameter ):
                 if len(tokenized_text)>max_seq_len:
                     print("wrong binary search 1")
                     sys.exit()
-                new_dev.append(Sentence(sent))        
-        
+                # new_dev.append(Sentence(sent))    
+                new_sent=Sentence(sent)
+                for index in range(len(new_sent)):
+                    new_sent[index].add_tag('ner', x[index].get_tag('ner').value)
+        #         print(new_sent.to_tagged_string())
+                new_dev.append(new_sent)     
+                
     #     new_train=[]
     #     for x in corpus.train:
     #     #     print(x.to_plain_string())
@@ -217,7 +243,12 @@ def train(data_path, list_embedding, output, hyperparameter ):
                 if len(tokenized_text)>max_seq_len:
                     print("wrong binary search 1")
                     sys.exit()
-                new_train.append(Sentence(sent)) 
+                # new_train.append(Sentence(sent)) 
+                new_sent=Sentence(sent)
+                for index in range(len(new_sent)):
+                    new_sent[index].add_tag('ner', x[index].get_tag('ner').value)
+        #         print(new_sent.to_tagged_string())
+                new_train.append(new_sent)
 
         new_test=[]
         for x in corpus.test:
@@ -237,7 +268,12 @@ def train(data_path, list_embedding, output, hyperparameter ):
                 if len(tokenized_text)>max_seq_len:
                     print("wrong binary search 1")
                     sys.exit()
-                new_test.append(Sentence(sent)) 
+                # new_test.append(Sentence(sent)) 
+                new_sent=Sentence(sent)
+                for index in range(len(new_sent)):
+                    new_sent[index].add_tag('ner', x[index].get_tag('ner').value)
+        #         print(new_sent.to_tagged_string())
+                new_test.append(new_sent)
 
         new_dev=[]
         for x in corpus.dev:
@@ -257,7 +293,244 @@ def train(data_path, list_embedding, output, hyperparameter ):
                 if len(tokenized_text)>max_seq_len:
                     print("wrong binary search 1")
                     sys.exit()
-                new_dev.append(Sentence(sent)) 
+                # new_dev.append(Sentence(sent)) 
+                new_sent=Sentence(sent)
+                for index in range(len(new_sent)):
+                    new_sent[index].add_tag('ner', x[index].get_tag('ner').value)
+        #         print(new_sent.to_tagged_string())
+                new_dev.append(new_sent)   
+
+    #     new_train=[]
+    #     for x in corpus.train:
+    #     #     print(x.to_plain_string())
+    #         tokenized_text = tokenizer.tokenize(x.to_plain_string())
+    #         if len(tokenized_text)<=512:
+    #             new_train.append(x)
+    #     new_test=[]
+    #     for x in corpus.test:
+    #         #     print(x.to_plain_string())
+    #             tokenized_text = tokenizer.tokenize(x.to_plain_string())
+    #             if len(tokenized_text)<=512:
+    #                 new_test.append(x) 
+    #     new_dev=[]
+    #     for x in corpus.dev:
+    #         #     print(x.to_plain_string())
+    #             tokenized_text = tokenizer.tokenize(x.to_plain_string())
+    #             if len(tokenized_text)<=512:
+    #                 new_dev.append(x)  
+                    
+        
+        corpus._train=new_train
+        corpus._test=new_test
+        corpus._dev=new_dev
+        stats=corpus.obtain_statistics()
+        print("Modified",stats)  
+
+    elif args.embedding=="XLM":
+        print("Tokenizer",args.embedding)
+        from pytorch_transformers import XLMTokenizer
+        
+        if args.embedding_path!="":
+            tokenizer = XLMTokenizer.from_pretrained(args.embedding_path)
+        else:
+            tokenizer = XLMTokenizer.from_pretrained('xlm-mlm-en-2048')
+        
+        
+        max_seq_len=500   
+        print("taking max seq len as ",max_seq_len)
+           
+
+        new_train=[]
+        for x in corpus.train:
+        #     print(x.to_plain_string())
+            tokenized_text = tokenizer.tokenize(x.to_plain_string())
+            if len(tokenized_text)<=max_seq_len:
+                new_train.append(x)
+            else:
+            
+                limit=bs(tokenizer,x,1,max_seq_len,max_seq_len)
+        #         print("limit",limit)
+                lw=x.to_tokenized_string().split(" ")
+                lw=lw[:limit]
+        #         print(limit,len(tokenized_text),len(lw))
+                sent=" ".join(lw)
+                tokenized_text = tokenizer.tokenize(sent)
+                if len(tokenized_text)>max_seq_len:
+                    print("wrong binary search 1")
+                    sys.exit()
+                # new_train.append(Sentence(sent)) 
+                new_sent=Sentence(sent)
+                for index in range(len(new_sent)):
+                    new_sent[index].add_tag('ner', x[index].get_tag('ner').value)
+        #         print(new_sent.to_tagged_string())
+                new_train.append(new_sent)
+
+        new_test=[]
+        for x in corpus.test:
+        #     print(x.to_plain_string())
+            tokenized_text = tokenizer.tokenize(x.to_plain_string())
+            if len(tokenized_text)<=max_seq_len:
+                new_test.append(x)
+            else:
+            
+                limit=bs(tokenizer,x,1,max_seq_len,max_seq_len)
+        #         print("limit",limit)
+                lw=x.to_tokenized_string().split(" ")
+                lw=lw[:limit]
+        #         print(limit,len(tokenized_text),len(lw))
+                sent=" ".join(lw)
+                tokenized_text = tokenizer.tokenize(sent)
+                if len(tokenized_text)>max_seq_len:
+                    print("wrong binary search 1")
+                    sys.exit()
+                # new_test.append(Sentence(sent)) 
+                new_sent=Sentence(sent)
+                for index in range(len(new_sent)):
+                    new_sent[index].add_tag('ner', x[index].get_tag('ner').value)
+        #         print(new_sent.to_tagged_string())
+                new_test.append(new_sent)
+
+        new_dev=[]
+        for x in corpus.dev:
+        #     print(x.to_plain_string())
+            tokenized_text = tokenizer.tokenize(x.to_plain_string())
+            if len(tokenized_text)<=max_seq_len:
+                new_dev.append(x)
+            else:
+            
+                limit=bs(tokenizer,x,1,max_seq_len,max_seq_len)
+        #         print("limit",limit)
+                lw=x.to_tokenized_string().split(" ")
+                lw=lw[:limit]
+        #         print(limit,len(tokenized_text),len(lw))
+                sent=" ".join(lw)
+                tokenized_text = tokenizer.tokenize(sent)
+                if len(tokenized_text)>max_seq_len:
+                    print("wrong binary search 1")
+                    sys.exit()
+                # new_dev.append(Sentence(sent)) 
+                new_sent=Sentence(sent)
+                for index in range(len(new_sent)):
+                    new_sent[index].add_tag('ner', x[index].get_tag('ner').value)
+        #         print(new_sent.to_tagged_string())
+                new_dev.append(new_sent)
+    #     new_train=[]
+    #     for x in corpus.train:
+    #     #     print(x.to_plain_string())
+    #         tokenized_text = tokenizer.tokenize(x.to_plain_string())
+    #         if len(tokenized_text)<=512:
+    #             new_train.append(x)
+    #     new_test=[]
+    #     for x in corpus.test:
+    #         #     print(x.to_plain_string())
+    #             tokenized_text = tokenizer.tokenize(x.to_plain_string())
+    #             if len(tokenized_text)<=512:
+    #                 new_test.append(x) 
+    #     new_dev=[]
+    #     for x in corpus.dev:
+    #         #     print(x.to_plain_string())
+    #             tokenized_text = tokenizer.tokenize(x.to_plain_string())
+    #             if len(tokenized_text)<=512:
+    #                 new_dev.append(x)  
+                    
+        
+        corpus._train=new_train
+        corpus._test=new_test
+        corpus._dev=new_dev
+        stats=corpus.obtain_statistics()
+        print("Modified",stats)  
+
+    elif args.embedding=="RoBERTa":
+        print("Tokenizer",args.embedding)
+        # from pytorch_transformers import RoBERTaTokenizer
+        #Not sure trying Bert tokenizer
+        # if args.embedding_path!="":
+        #     tokenizer = RoBERTaTokenizer.from_pretrained(args.embedding_path)
+        # else:
+        #     tokenizer = RoBERTaTokenizer.from_pretrained('')
+        from pytorch_transformers import BertTokenizer
+        print("Using Bert tokenizer bert-base-uncased")
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        
+        max_seq_len=500   
+        print("taking max seq len as ",max_seq_len)
+           
+
+        new_train=[]
+        for x in corpus.train:
+        #     print(x.to_plain_string())
+            tokenized_text = tokenizer.tokenize(x.to_plain_string())
+            if len(tokenized_text)<=max_seq_len:
+                new_train.append(x)
+            else:
+            
+                limit=bs(tokenizer,x,1,max_seq_len,max_seq_len)
+        #         print("limit",limit)
+                lw=x.to_tokenized_string().split(" ")
+                lw=lw[:limit]
+        #         print(limit,len(tokenized_text),len(lw))
+                sent=" ".join(lw)
+                tokenized_text = tokenizer.tokenize(sent)
+                if len(tokenized_text)>max_seq_len:
+                    print("wrong binary search 1")
+                    sys.exit()
+                # new_train.append(Sentence(sent)) 
+                new_sent=Sentence(sent)
+                for index in range(len(new_sent)):
+                    new_sent[index].add_tag('ner', x[index].get_tag('ner').value)
+        #         print(new_sent.to_tagged_string())
+                new_train.append(new_sent)
+
+        new_test=[]
+        for x in corpus.test:
+        #     print(x.to_plain_string())
+            tokenized_text = tokenizer.tokenize(x.to_plain_string())
+            if len(tokenized_text)<=max_seq_len:
+                new_test.append(x)
+            else:
+            
+                limit=bs(tokenizer,x,1,max_seq_len,max_seq_len)
+        #         print("limit",limit)
+                lw=x.to_tokenized_string().split(" ")
+                lw=lw[:limit]
+        #         print(limit,len(tokenized_text),len(lw))
+                sent=" ".join(lw)
+                tokenized_text = tokenizer.tokenize(sent)
+                if len(tokenized_text)>max_seq_len:
+                    print("wrong binary search 1")
+                    sys.exit()
+                # new_test.append(Sentence(sent)) 
+                new_sent=Sentence(sent)
+                for index in range(len(new_sent)):
+                    new_sent[index].add_tag('ner', x[index].get_tag('ner').value)
+        #         print(new_sent.to_tagged_string())
+                new_test.append(new_sent)
+
+        new_dev=[]
+        for x in corpus.dev:
+        #     print(x.to_plain_string())
+            tokenized_text = tokenizer.tokenize(x.to_plain_string())
+            if len(tokenized_text)<=max_seq_len:
+                new_dev.append(x)
+            else:
+            
+                limit=bs(tokenizer,x,1,max_seq_len,max_seq_len)
+        #         print("limit",limit)
+                lw=x.to_tokenized_string().split(" ")
+                lw=lw[:limit]
+        #         print(limit,len(tokenized_text),len(lw))
+                sent=" ".join(lw)
+                tokenized_text = tokenizer.tokenize(sent)
+                if len(tokenized_text)>max_seq_len:
+                    print("wrong binary search 1")
+                    sys.exit()
+                # new_dev.append(Sentence(sent)) 
+                new_sent=Sentence(sent)
+                for index in range(len(new_sent)):
+                    new_sent[index].add_tag('ner', x[index].get_tag('ner').value)
+        #         print(new_sent.to_tagged_string())
+                new_dev.append(new_sent) 
+
     #     new_train=[]
     #     for x in corpus.train:
     #     #     print(x.to_plain_string())
@@ -343,7 +616,7 @@ parser.add_argument('--dataset_base_path', type=str, default='../shared/sciencei
 
 parser.add_argument('--dataset', type=str, default='Inspec', help='name of the dataset in .txt format ')
 
-parser.add_argument('--output_base_path', type=str, default='../result/', help='put true if doing param selection')
+parser.add_argument('--output_base_path', type=str, default='../result/', help='result path')
 
 parser.add_argument('--iteration', type=str, default='', help='put iteration no (\'_#\' like \'_1\') if doing multiple runs')
 
@@ -391,6 +664,9 @@ parser.add_argument('--word_dropout', type=float, default=0.05, help='')
 parser.add_argument('--locked_dropout', type=float, default=0.5, help='')
 
 
+parser.add_argument('--downsample_train', type=float, default=0.0, help='Downsampling train primarily for KP20k ')
+
+parser.add_argument('--not_in_memory',  default=False, action='store_true', help='If this argument used then the embeddings/datasets are read from the disc ')
 
 #  python dhruva_train.py --embedding TransformerXL --dataset Inspec --lr 0.05 --anneal_factor 0.5 --patience 4 --batch_size 4 --num_epochs 60 --threads 12 --is_dev True --use_crf True --rnn_layers 1 --hidden_size 128 --dropout 0.0 --word_dropout 0.05 --locked_dropout 0.5 
 
@@ -425,12 +701,36 @@ if args.embedding=='OpenAIGPT':
     else:
         embedding=OpenAIGPTEmbeddings()
 
+if args.embedding=='OpenAI-GPT2':
+    if args.embedding_path!="":
+        embedding=OpenAIGPT2Embeddings(args.embedding_path)
+    else:
+        embedding=OpenAIGPT2Embeddings()
+
+if args.embedding=='RoBERTa':
+    if args.embedding_path!="":
+        embedding=RoBERTaEmbeddings(args.embedding_path)
+    else:
+        embedding=RoBERTaEmbeddings()
+
+if args.embedding=='XLM':
+    if args.embedding_path!="":
+        embedding=XLMEmbeddings(args.embedding_path)
+    else:
+        embedding=XLMEmbeddings()
+
+if args.embedding=='XLNet':
+    if args.embedding_path!="":
+        embedding=XLNetEmbeddings(args.embedding_path)
+    else:
+        embedding=XLNetEmbeddings()
+
 
 # if args.embedding=='ELMoTransformer':
 #     embedding = ELMoTransformerEmbeddings()
 
 #batch size learning rate anneal factor patience
-output=args.output_base_path+args.embedding+"_"+args.embedding_path +"_"+args.dataset+args.iteration+ "_bs_"+str(args.batch_size)+ "_lr_"+str(args.lr)+ '_af_'+str(args.anneal_factor)+ '_p_'+ str(args.patience) +\
+output=args.output_base_path+args.embedding+"_"+args.embedding_path +"_"+args.dataset+args.iteration+"_downsample_train_"+str(args.downsample_train)+"_bs_"+str(args.batch_size)+ "_lr_"+str(args.lr)+ '_af_'+str(args.anneal_factor)+ '_p_'+ str(args.patience) +\
                "_hsize_"+str(args.hidden_size)+"_crf_"+str(int(args.use_crf))+"_lrnn_"+str(args.rnn_layers)+"_dp_"+str(args.dropout)+"_wdp_"+str(args.word_dropout)+"_ldp_"+str(args.locked_dropout)+"/"
 dataset_path=args.dataset_base_path+args.dataset+"/"
 
