@@ -9,8 +9,8 @@
   <li> Run test.py to check for NER task using CoNLL 2003 Dataset </li>
   </ol>
   To import character embeddings 
-  ```
-  from flair.embeddings  CharacterCNNEmbeddings
-  embeddings = CharacterCNNEmbeddings()
+  ```python
+from flair.embeddings  CharacterCNNEmbeddings
+embeddings = CharacterCNNEmbeddings()
   ```
 
