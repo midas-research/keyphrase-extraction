@@ -17,21 +17,14 @@ embeddings = CharacterCNNEmbeddings()
 
 ## Architectures 
 The following architectures have been tried out for the experiments.
-<ol>
- <li>  <b> word embeddings -> cnn -> maxpool -> CRF </b> </li>-
-  <li>  <b> word embeddings -> muti-channel cnns -> maxpool -> CRF </b> </li>
-  <li>  <b> word embeddings -> cnn -> maxpool -> blstm -> CRF </b> </li>
- </ol>
 ```python
 from flair.models.sequence_tagger_CNN import SequenceTagger_CNN
-
-# word embeddings -> cnn -> maxpool -> CRF
+# word embeddings -> cnn -> maxpool -> CRF 
 tagger: SequenceTagger_CNN = SequenceTagger_CNN(hidden_size=200,
                                         embeddings=embeddings,
                                         tag_dictionary=tag_dictionary,
                                         tag_type=tag_type,
                                         use_crf=True)
-
 # word embeddings -> muti-channel cnns -> maxpool -> CRF
 tagger: SequenceTagger_CNN = SequenceTagger_CNN(hidden_size=200,
                                         embeddings=embeddings,
@@ -39,5 +32,10 @@ tagger: SequenceTagger_CNN = SequenceTagger_CNN(hidden_size=200,
                                         tag_type=tag_type,
                                         use_crf=True,
                                         use_multichannels=True)
-                                       
 ```
+<ol>
+ <li>  <b> word embeddings -> cnn -> maxpool -> CRF </b> </li>-
+  <li>  <b> word embeddings -> muti-channel cnns -> maxpool -> CRF </b> </li>
+  <li>  <b> word embeddings -> cnn -> maxpool -> blstm -> CRF </b> </li>
+ </ol>
+
