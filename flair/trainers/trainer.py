@@ -10,7 +10,6 @@ import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.optim.sgd import SGD
 from torch.utils.data.dataset import ConcatDataset
-
 from flair.samplers import FlairSampler
 
 try:
@@ -316,7 +315,7 @@ class ModelTrainer:
 
                         # forward pass
                         loss = self.model.forward_loss(batch_step)
-
+                        
                         # Backward
                         if use_amp:
                             with amp.scale_loss(loss, optimizer) as scaled_loss:
