@@ -9,14 +9,8 @@
   <li> Run test.py to check for NER task using CoNLL 2003 Dataset </li>
   </ol>
   To import character embeddings 
-  <ul>
- <li> from flair.embeddings  CharacterCNNEmbeddings </li> 
- <li> embeddings = CharacterCNNEmbeddings() </li> 
-
- </ul>
-
-```ruby
-require 'redcarpet'
-markdown = Redcarpet.new("Hello World!")
-puts markdown.to_html
+  
+```python
+from flair.embeddings  CharacterCNNEmbeddings
+embeddings = CharacterCNNEmbeddings()
 ```
