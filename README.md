@@ -32,6 +32,15 @@ tagger: SequenceTagger_CNN = SequenceTagger_CNN(hidden_size=200,
                                         tag_type=tag_type,
                                         use_crf=True,
                                         use_multichannels=True)
+                                        
+# word embeddings -> cnn -> maxpool -> LSTM -> CRF 
+from flair.models.sequence_tagger_combo import SequenceTagger
+#from flair.models import SequenceTagger
+tagger: SequenceTagger = SequenceTagger(hidden_size=200,
+                                        embeddings=embeddings,
+                                        tag_dictionary=tag_dictionary,
+                                        tag_type=tag_type,
+                                        use_crf=True)
 ```
 <ol>
  <li>  <b> word embeddings -> cnn -> maxpool -> CRF </b> </li>-
