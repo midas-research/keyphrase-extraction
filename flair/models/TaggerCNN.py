@@ -73,8 +73,26 @@ class Multi_Channel_CNN(nn.Module):
         x = self.Linear(x)
         return x
     
+class Preprocess_CNN(nn.Module):
+    def __init__(self,in_c,out_c,max_length):
+        super(Preprocess_CNN,self).__init__()
+        self.conv1 = nn.Conv1d(in_c, out_c, kernel_size=3, padding=1)
+        self.Maxpool = nn.MaxPool1d(kernel_size=3, padding=1)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(p=0.5)
+        self.max_length = max_length       
+        
+    def forward(self,x):
+        (a,b,c) = x.size()
+        x = F.pad(input=x,pad=(0,0,0,self.max_length-x.size(1),0,0))
+        x = x.permute(0,2,1)  
+        x = self.conv1(x)
+        x = self.relu(x)    
+        x = self.dropout(x)
+        x = x.permute(0,2,1)[:,:b,:]
+        return x
+        
 
-            
             
         
     
