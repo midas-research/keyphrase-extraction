@@ -50,7 +50,7 @@ tagger: SequenceTagger = SequenceTagger(hidden_size=200,
  
 ## Fei-Lu's model
 Check out this <a href="https://arxiv.org/pdf/1904.02321.pdf"> paper </a>. To import fei_lu's model write
-```
+```python
 from flair.models.sequence_tagger_fielu import SequenceTagger
 #from flair.models import SequenceTagger
 tagger: SequenceTagger = SequenceTagger(hidden_size=200,
