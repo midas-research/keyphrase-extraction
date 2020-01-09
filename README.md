@@ -47,4 +47,15 @@ tagger: SequenceTagger = SequenceTagger(hidden_size=200,
   <li>  <b> word embeddings -> muti-channel cnns -> maxpool -> CRF </b> </li>
   <li>  <b> word embeddings -> cnn -> maxpool -> blstm -> CRF </b> </li>
  </ol>
-
+ 
+## Fei-Lu's model
+Check out this <a href="https://arxiv.org/pdf/1904.02321.pdf"> paper </a>. To import fei_lu's model write
+```
+from flair.models.sequence_tagger_fielu import SequenceTagger
+#from flair.models import SequenceTagger
+tagger: SequenceTagger = SequenceTagger(hidden_size=200,
+                                        embeddings=embeddings,
+                                        tag_dictionary=tag_dictionary,
+                                        tag_type=tag_type,
+                                        use_crf=True)
+```
