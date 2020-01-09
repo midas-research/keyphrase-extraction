@@ -4,7 +4,7 @@ from pathlib import Path
 import logging
 from pathlib import Path
 from typing import List, Union, Optional, Callable
-
+from PositionalEncoder import PositionalEncoding
 import numpy as np
 import torch
 import torch.nn
@@ -13,20 +13,22 @@ from tabulate import tabulate
 from torch.nn.parameter import Parameter
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from flair.models.TaggerCNN import Text_CNN, Multi_Channel_CNN
+import sys
 import flair.nn
 from flair.data import Dictionary, Sentence, Token, Label, space_tokenizer
 from flair.datasets import SentenceDataset, StringDataset
 from flair.embeddings import TokenEmbeddings
 from flair.file_utils import cached_path
 from flair.training_utils import Metric, Result, store_embeddings
-import sys
-
+import math
+from torch import nn
 log = logging.getLogger("flair")
 
 START_TAG: str = "<START>"
 STOP_TAG: str = "<STOP>"
 
+def one_hot(x, class_count):
+    return torch.eye(class_count)[x,:]
 
 def to_scalar(var):
     return var.view(-1).detach().tolist()[0]
@@ -66,7 +68,7 @@ def pad_tensors(tensor_list):
     return template, lens_
 
 
-class SequenceTagger_CNN(flair.nn.Model):
+class SequenceTagger(flair.nn.Model):
     def __init__(
         self,
         hidden_size: int,
@@ -82,7 +84,6 @@ class SequenceTagger_CNN(flair.nn.Model):
         train_initial_hidden_state: bool = False,
         rnn_type: str = "LSTM",
         pickle_module: str = "pickle",
-        use_multichannels : bool = False
     ):
         """
         Initializes a SequenceTagger
@@ -97,10 +98,9 @@ class SequenceTagger_CNN(flair.nn.Model):
         :param word_dropout: word dropout probability
         :param locked_dropout: locked dropout probability
         :param train_initial_hidden_state: if True, trains initial hidden state of RNN
-        :param max_length: Maximum length tell which the sequence is padded
         """
 
-        super(SequenceTagger_CNN, self).__init__()
+        super(SequenceTagger, self).__init__()
 
         self.use_rnn = use_rnn
         self.hidden_size = hidden_size
@@ -120,19 +120,14 @@ class SequenceTagger_CNN(flair.nn.Model):
         self.nlayers: int = rnn_layers
         self.hidden_word = None
         
+        # matrix 
+        self.pe = PositionalEncoding(120,embeddings.embedding_length).unsqueeze(0)
         # dropouts
         self.use_dropout: float = dropout
         self.use_word_dropout: float = word_dropout
         self.use_locked_dropout: float = locked_dropout
 
         self.pickle_module = pickle_module
-        
-        # MAX LENGTH 
-        self.is_multichannel : bool = use_multichannels
-        if use_multichannels:
-            self.CNN =  Multi_Channel_CNN(embeddings.embedding_length,len(tag_dictionary),200)
-        else:
-            self.CNN =  Text_CNN(embeddings.embedding_length,len(tag_dictionary),200)
 
         if dropout > 0.0:
             self.dropout = torch.nn.Dropout(dropout)
@@ -146,7 +141,11 @@ class SequenceTagger_CNN(flair.nn.Model):
         rnn_input_dim: int = self.embeddings.embedding_length
 
         self.relearn_embeddings: bool = True
-
+        
+        self.partial_rnn = nn.GRU(input_size = len(tag_dictionary), hidden_size=256 , batch_first=True)
+        self.partial_linear = nn.Sequential(nn.Linear(256,self.tagset_size))
+        
+        
         if self.relearn_embeddings:
             self.embedding2nn = torch.nn.Linear(rnn_input_dim, rnn_input_dim)
 
@@ -155,6 +154,7 @@ class SequenceTagger_CNN(flair.nn.Model):
         self.rnn_type = rnn_type
 
         # bidirectional LSTM on top of embedding layer
+        
         if self.use_rnn:
             num_directions = 2 if self.bidirectional else 1
 
@@ -194,6 +194,7 @@ class SequenceTagger_CNN(flair.nn.Model):
             self.linear = torch.nn.Linear(
                 self.embeddings.embedding_length, len(tag_dictionary)
             )
+        self.combined_linear = nn.Linear(2*len(tag_dictionary) + embeddings.embedding_length, len(tag_dictionary))
 
         if self.use_crf:
             self.transitions = torch.nn.Parameter(
@@ -224,7 +225,6 @@ class SequenceTagger_CNN(flair.nn.Model):
             "use_word_dropout": self.use_word_dropout,
             "use_locked_dropout": self.use_locked_dropout,
             "rnn_type": self.rnn_type,
-            "multichannel":self.is_multichannel
         }
         return model_state
 
@@ -245,11 +245,8 @@ class SequenceTagger_CNN(flair.nn.Model):
             if not "train_initial_hidden_state" in state.keys()
             else state["train_initial_hidden_state"]
         )
-        use_multichannels = (
-                False if not "multichannel" in state.keys()
-                else state["multichannel"])
 
-        model = SequenceTagger_CNN(
+        model = SequenceTagger(
             hidden_size=state["hidden_size"],
             embeddings=state["embeddings"],
             tag_dictionary=state["tag_dictionary"],
@@ -262,7 +259,6 @@ class SequenceTagger_CNN(flair.nn.Model):
             locked_dropout=use_locked_dropout,
             train_initial_hidden_state=train_initial_hidden_state,
             rnn_type=rnn_type,
-            use_multichannels = use_multichannels
         )
         model.load_state_dict(state["state_dict"])
         return model
@@ -482,16 +478,21 @@ class SequenceTagger_CNN(flair.nn.Model):
     def forward_loss(
         self, data_points: Union[List[Sentence], Sentence], sort=True
     ) -> torch.tensor:
+        
         features = self.forward(data_points)
         return self._calculate_loss(features, data_points)
 
-    def forward(self, sentences: List[Sentence]):
+    def forward(self, sentences: List[Sentence],is_test=False):
 
         self.embeddings.embed(sentences)
 
         lengths: List[int] = [len(sentence.tokens) for sentence in sentences]
         longest_token_sequence_in_batch: int = max(lengths)
+        
 
+        tag_list: List = []
+        r_outputs = torch.Tensor([])
+                            
         pre_allocated_zero_tensor = torch.zeros(
             self.embeddings.embedding_length * longest_token_sequence_in_batch,
             dtype=torch.float,
@@ -530,45 +531,83 @@ class SequenceTagger_CNN(flair.nn.Model):
             sentence_tensor = self.locked_dropout(sentence_tensor)
 
         if self.relearn_embeddings:
-            sentence_tensor = self.embedding2nn(sentence_tensor)
-        # _________________________________________________________________
-        # LSTM PART
-        # ________________________________________________________________
-       # cnn = CNN_2d()
+            sentence_tensor = self.embedding2nn(sentence_tensor)  
+     #   print(sentence_tensor.size(1),sentence_tensor.size(),self.pe[0][:sentence_tensor.size(1),:].unsqueeze(0).size())
+        positional_embeddings = sentence_tensor * math.sqrt(self.embeddings.embedding_length) + self.pe[0][:sentence_tensor.size(1)]
         
-        features = self.CNN(sentence_tensor)
+
+        if self.use_rnn:
+            packed = torch.nn.utils.rnn.pack_padded_sequence(
+                sentence_tensor, lengths, enforce_sorted=False, batch_first=True
+            )
+            
+            
+            # if initial hidden state is trainable, use this state
+            if self.train_initial_hidden_state:
+                initial_hidden_state = [
+                    self.lstm_init_h.unsqueeze(1).repeat(1, len(sentences), 1),
+                    self.lstm_init_c.unsqueeze(1).repeat(1, len(sentences), 1),
+                ]
+                rnn_output, hidden = self.rnn(packed, initial_hidden_state)
+            else:
+                rnn_output, hidden = self.rnn(packed)
+
+            sentence_tensor, output_lengths = torch.nn.utils.rnn.pad_packed_sequence(
+                rnn_output, batch_first=True
+            )
+
+            if self.use_dropout > 0.0:
+                sentence_tensor = self.dropout(sentence_tensor)
+            # word dropout only before LSTM - TODO: more experimentation needed
+            # if self.use_word_dropout > 0.0:
+            #     sentence_tensor = self.word_dropout(sentence_tensor)
+            if self.use_locked_dropout > 0.0:
+                sentence_tensor = self.locked_dropout(sentence_tensor)
+
+        features = self.linear(sentence_tensor)
+   
+#      Sizes                     
+#      init_partial = n_batch * seq_len * tag_size [ Ground truth ]
+#      features = n_batch * seq_len * tag_size
+#      positional_embeddings = n_batch * seq_len * embed_dim
+#      partial_inputs =  n_batch * seq_len * tag_size
         
+        init_partial = torch.zeros(features.size(0), features.size(1), self.tagset_size)
+
         
-#        if self.use_rnn:
-#            packed = torch.nn.utils.rnn.pack_padded_sequence(
-#                sentence_tensor, lengths, enforce_sorted=False, batch_first=True
-#            )
-#
-#            # if initial hidden state is trainable, use this state
-#            if self.train_initial_hidden_state:
-#                initial_hidden_state = [
-#                    self.lstm_init_h.unsqueeze(1).repeat(1, len(sentences), 1),
-#                    self.lstm_init_c.unsqueeze(1).repeat(1, len(sentences), 1),
-#                ]
-#                rnn_output, hidden = self.rnn(packed, initial_hidden_state)
-#            else:
-#                rnn_output, hidden = self.rnn(packed)
-#
-#            sentence_tensor, output_lengths = torch.nn.utils.rnn.pad_packed_sequence(
-#                rnn_output, batch_first=True
-#            )
-#
-#            if self.use_dropout > 0.0:
-#                sentence_tensor = self.dropout(sentence_tensor)
-#            # word dropout only before LSTM - TODO: more experimentation needed
-#            # if self.use_word_dropout > 0.0:
-#            #     sentence_tensor = self.word_dropout(sentence_tensor)
-#            if self.use_locked_dropout > 0.0:
-#                sentence_tensor = self.locked_dropout(sentence_tensor)
-#
-#        features = self.linear(sentence_tensor)
-#        
-        return features
+        if  is_test:
+            for s_id, sentence in enumerate(sentences):
+                # get the tags in this sentence
+                b_size = 0
+                tag_idx: List[int] = [
+                    self.tag_dictionary.get_idx_for_item(token.get_tag(self.tag_type).value)
+                    for token in sentence
+                ]
+                # add tags as tensor
+                tag = torch.tensor(tag_idx, device=flair.device)
+                tag_list.append(tag)
+                hot_vector = one_hot(tag,self.tagset_size).unsqueeze(0)
+                init_partial[b_size,:hot_vector.size(1),:] = hot_vector
+                b_size = b_size+1
+        else:
+            for b_size in range(features.size(0)):
+                hot_vector = features[b_size,:,:].argmax(1)
+                hot_vector = one_hot(hot_vector,self.tagset_size).unsqueeze(0)
+                init_partial[b_size,:hot_vector.size(1),:] = hot_vector                
+                b_size = b_size+1                
+                
+            
+            
+        
+        partial_inputs = features * init_partial
+        partial_inputs = self.partial_rnn(partial_inputs)[0]
+        partial_inputs = self.partial_linear(partial_inputs)
+        
+        total_inputs = torch.cat([torch.cat([partial_inputs,positional_embeddings],dim=2),features],dim=2)
+        total_outputs = self.combined_linear(total_inputs)  
+            
+            
+        return total_outputs
 
     def _score_sentence(self, feats, tags, lens_):
 
@@ -608,6 +647,7 @@ class SequenceTagger_CNN(flair.nn.Model):
     ) -> float:
 
         lengths: List[int] = [len(sentence.tokens) for sentence in sentences]
+
         tag_list: List = []
         for s_id, sentence in enumerate(sentences):
             # get the tags in this sentence
@@ -618,14 +658,16 @@ class SequenceTagger_CNN(flair.nn.Model):
             # add tags as tensor
             tag = torch.tensor(tag_idx, device=flair.device)
             tag_list.append(tag)
+
         if self.use_crf:
             # pad tags if using batch-CRF decoder
             tags, _ = pad_tensors(tag_list)
-            
+
             forward_score = self._forward_alg(features, lengths)
             gold_score = self._score_sentence(features, tags, lengths)
 
             score = forward_score - gold_score
+
             return score.mean()
 
         else:
