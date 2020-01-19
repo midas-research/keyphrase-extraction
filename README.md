@@ -14,6 +14,13 @@
 from flair.embeddings import CharacterCNNEmbeddings
 embeddings = CharacterCNNEmbeddings()
 ```
+  To import SpanBERT embeddings. First download <u>SpanBERT(large & cased)</u> from the Spanbert Github repo. 
+   Let "/path/to/spanbert_hf" be the path to unzipped spanbert_hf folder.
+   
+```python
+from flair.embeddings import  SpanBertEmbeddings
+embeddings =  SpanBertEmbeddings("/path/to/spanbert_hf")
+```
 
 ## Architectures 
 The following architectures have been tried out for the experiments.
