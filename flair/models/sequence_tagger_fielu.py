@@ -397,7 +397,7 @@ class SequenceTagger(flair.nn.Model):
                 batch_no += 1
 
                 with torch.no_grad():
-                    features = self.forward(batch)
+                    features = self.forward(batch,is_test=True)
                     loss = self._calculate_loss(features, batch)
                     tags, _ = self._obtain_labels(
                         feature=features,
@@ -575,7 +575,7 @@ class SequenceTagger(flair.nn.Model):
         init_partial = torch.zeros(features.size(0), features.size(1), self.tagset_size)
 
         
-        if  is_test:
+        if not is_test:
             for s_id, sentence in enumerate(sentences):
                 # get the tags in this sentence
                 b_size = 0
