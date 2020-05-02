@@ -621,8 +621,8 @@ class SequenceTagger_CNN(flair.nn.Model):
         if self.use_crf:
             # pad tags if using batch-CRF decoder
             tags, _ = pad_tensors(tag_list)
-            
             forward_score = self._forward_alg(features, lengths)
+
             gold_score = self._score_sentence(features, tags, lengths)
 
             score = forward_score - gold_score
@@ -783,6 +783,7 @@ class SequenceTagger_CNN(flair.nn.Model):
 
         init_alphas = torch.FloatTensor(self.tagset_size).fill_(-10000.0)
         init_alphas[self.tag_dictionary.get_idx_for_item(START_TAG)] = 0.0
+        
 
         forward_var = torch.zeros(
             feats.shape[0],
@@ -790,7 +791,10 @@ class SequenceTagger_CNN(flair.nn.Model):
             feats.shape[2],
             dtype=torch.float,
             device=flair.device,
-        )
+            )
+
+
+
 
         forward_var[:, 0, :] = init_alphas[None, :].repeat(feats.shape[0], 1)
 
@@ -816,11 +820,15 @@ class SequenceTagger_CNN(flair.nn.Model):
             )
 
             agg_ = torch.log(torch.sum(torch.exp(tag_var), dim=2))
-
             cloned = forward_var.clone()
             cloned[:, i + 1, :] = max_tag_var + agg_
 
             forward_var = cloned
+        for i,lent in enumerate(lens_):
+            if lent >= 100:
+                lens_[i] = 100
+        temp_var = forward_var
+        
 
         forward_var = forward_var[range(forward_var.shape[0]), lens_, :]
 
